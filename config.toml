@@ -6,9 +6,9 @@ scaling_factor=2
 font_path="sans.ttf"
 
 [resolution]
-enabled=false
-x=100
-y=100
+enabled=true
+x=210
+y=210
 
 [output]
 letters_per_frame=1

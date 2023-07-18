@@ -84,7 +84,11 @@ func (g *Game) Update() error {
 
 	// if repeatingKeyPressed(ebiten.KeyF2) {
 	// screenShakeFlag = !screenShakeFlag
-	// }
+	//}
+
+	if repeatingKeyPressed(ebiten.KeyEnter) || repeatingKeyPressed(ebiten.KeyNumpadEnter) {
+		g.user_text += "\n"
+	}
 
 	g.frame_counter++
 	return nil
@@ -110,7 +114,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
-	return defaultScreenWidth, defaultScreenHeight
+	return viper.GetInt("resolution.x"), viper.GetInt("resolution.y")
 }
 
 func init() {
@@ -154,6 +158,10 @@ func init() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	if viper.GetBool("resolution.enabled") {
+		ebiten.SetWindowSize(viper.GetInt("resolution.x"), viper.GetInt("resolution.y"))
+	}
 }
 
 func main() {
@@ -162,7 +170,8 @@ func main() {
 		frame_counter: 0,
 	}
 
-	ebiten.SetWindowTitle("Type here your thing")
+	ebiten.SetWindowTitle("Type your thing here")
+	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	ebiten.SetWindowSize(defaultScreenWidth, defaultScreenHeight)
 	if err := ebiten.RunGame(g); err != nil {
 		log.Fatal(err)
