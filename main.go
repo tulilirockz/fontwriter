@@ -164,9 +164,6 @@ func main() {
 		frame_counter: 0,
 	}
 
-	if fullconfig.Res.Enabled {
-		ebiten.SetWindowSize(fullconfig.Res.X, fullconfig.Res.Y)
-	}
 	ebiten.SetWindowTitle("Type your thing here")
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	if err := ebiten.RunGame(g); err != nil {
@@ -190,9 +187,5 @@ func repeatingKeyPressed(key ebiten.Key) bool {
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
-	if fullconfig.Res.Enabled {
-		return fullconfig.Res.X, fullconfig.Res.Y
-	}
-
 	return defaultScreenWidth, defaultScreenHeight
 }
