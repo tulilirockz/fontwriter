@@ -1,6 +1,7 @@
 package main
 
 import (
+	"image/color"
 	"log"
 	"path"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
+	"github.com/hajimehoshi/ebiten/v2/text"
 	"github.com/spf13/viper"
 	render "github.com/tulilirockz/typewriter/internal/render"
 	"golang.org/x/image/font"
@@ -20,44 +22,26 @@ const (
 	defaultScreenHeight = 480
 )
 
-type Flags struct {
-	Render bool
-}
-
-var SysFlags Flags = Flags{}
-var titleFont font.Face
-var renderingOptions render.Options = render.Options{
-	Image_opt: &ebiten.DrawImageOptions{
-		Filter: ebiten.FilterNearest,
-	},
-	Anti_aliasing: viper.GetBool("output.anti_aliasing"),
-	Shakeit:       viper.GetBool("output.shake_font"),
-}
-
-var renderingCanvas *ebiten.Image
-var renderingFrameCounter int = 0
-var renderingEnabledFlag = false
-
 type Game struct {
 	runes         []rune
 	user_text     string
 	frame_counter int
 }
+type Flag bool
 
-func repeatingKeyPressed(key ebiten.Key) bool {
-	const (
-		delay    = 30
-		interval = 3
-	)
-	d := inpututil.KeyPressDuration(key)
-	if d == 1 {
-		return true
+var (
+	titleFont             font.Face
+	renderingCanvas       *ebiten.Image
+	renderingFrameCounter int            = 0
+	flagRender            Flag           = false
+	renderingOptions      render.Options = render.Options{
+		Image_opt: &ebiten.DrawImageOptions{
+			Filter: ebiten.FilterNearest,
+		},
+		Anti_aliasing: viper.GetBool("output.anti_aliasing"),
+		Shakeit:       viper.GetBool("output.shake_font"),
 	}
-	if d >= delay && (d-delay)%interval == 0 {
-		return true
-	}
-	return false
-}
+)
 
 func (g *Game) Update() error {
 	g.runes = ebiten.AppendInputChars(g.runes[:0])
@@ -75,11 +59,12 @@ func (g *Game) Update() error {
 			log.Fatalf("Failure to create specified folder on output path: %s\n", err)
 		}
 
-		SysFlags.Render = true
+		flagRender = true
 		renderingFrameCounter = 0
+		rectanglebox := text.BoundString(titleFont, g.user_text)
 		renderingCanvas = ebiten.NewImage(
-			len(g.user_text)*int(viper.GetFloat64("text.size")*(viper.GetFloat64("text.scaling_factor"))),
-			int(viper.GetFloat64("text.size")))
+			rectanglebox.Dx(),
+			rectanglebox.Dy())
 	}
 
 	// if repeatingKeyPressed(ebiten.KeyF2) {
@@ -95,26 +80,33 @@ func (g *Game) Update() error {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	if SysFlags.Render {
-		if renderingFrameCounter == len(g.user_text) {
-			SysFlags.Render = false
-			renderingFrameCounter = 0
-			return
-		}
-
-		render.RenderTextToCanvas(g.user_text, &renderingFrameCounter, renderingCanvas, titleFont, renderingOptions)
-		render.WriteImageToFS(renderingCanvas, viper.GetString("output.path"), renderingFrameCounter)
-		renderingFrameCounter++
-	}
 	t := g.user_text
 	if g.frame_counter%60 < 30 {
 		t += "_"
 	}
 	ebitenutil.DebugPrintAt(screen, t, 0, 0)
-}
 
-func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
-	return viper.GetInt("resolution.x"), viper.GetInt("resolution.y")
+	if flagRender {
+		if renderingFrameCounter == len(g.user_text) {
+			flagRender = false
+			renderingFrameCounter = 0
+			return
+		}
+
+		rectanglebox := text.BoundString(titleFont, g.user_text)
+		text.Draw(renderingCanvas, g.user_text[0:renderingFrameCounter+1], titleFont, 0, rectanglebox.Dy(), color.White)
+
+		if !renderingOptions.Anti_aliasing {
+			render.RemoveAntiAliasing(renderingCanvas)
+		}
+
+		err := render.WriteImageToFS(renderingCanvas, viper.GetString("output.path"), renderingFrameCounter)
+		if err != nil {
+			log.Printf("failed to encode: %v", err)
+		}
+
+		renderingFrameCounter++
+	}
 }
 
 func init() {
@@ -176,4 +168,23 @@ func main() {
 	if err := ebiten.RunGame(g); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func repeatingKeyPressed(key ebiten.Key) bool {
+	const (
+		delay    = 30
+		interval = 3
+	)
+	d := inpututil.KeyPressDuration(key)
+	if d == 1 {
+		return true
+	}
+	if d >= delay && (d-delay)%interval == 0 {
+		return true
+	}
+	return false
+}
+
+func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
+	return viper.GetInt("resolution.x"), viper.GetInt("resolution.y")
 }
