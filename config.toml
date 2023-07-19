@@ -12,7 +12,6 @@ y=210
 
 [output]
 letters_per_frame=1
-shake_font=false
 anti_aliasing=false
 gif=false
 path="out"
