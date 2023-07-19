@@ -11,7 +11,8 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/text"
-	"github.com/spf13/viper"
+	"github.com/pelletier/go-toml/v2"
+	"github.com/tulilirockz/fontwriter/internal/configuration"
 	render "github.com/tulilirockz/fontwriter/internal/render"
 	"github.com/tulilirockz/fontwriter/internal/ui"
 	"golang.org/x/image/font"
@@ -31,17 +32,12 @@ type Game struct {
 type Flag bool
 
 var (
+	fullconfig            *configuration.ProgramConf
 	titleFont             font.Face
 	renderingCanvas       *ebiten.Image
-	renderingFrameCounter int            = 0
-	flagRender            Flag           = false
-	renderingOptions      render.Options = render.Options{
-		Image_opt: &ebiten.DrawImageOptions{
-			Filter: ebiten.FilterNearest,
-		},
-		Anti_aliasing: viper.GetBool("output.anti_aliasing"),
-		Shakeit:       viper.GetBool("output.shake_font"),
-	}
+	renderingFrameCounter int  = 0
+	flagRender            Flag = false
+	renderingOptions      *render.Options
 )
 
 func (g *Game) Update() error {
@@ -55,7 +51,7 @@ func (g *Game) Update() error {
 	}
 
 	if repeatingKeyPressed(ebiten.KeyF1) {
-		err := os.Mkdir(path.Clean(viper.GetString("output.path")), 0755)
+		err := os.Mkdir(path.Clean(fullconfig.Output.Path), 0755)
 		if !os.IsExist(err) && err != nil {
 			log.Fatalf("Failure to create specified folder on output path: %s\n", err)
 		}
@@ -105,7 +101,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			render.RemoveAntiAliasing(renderingCanvas)
 		}
 
-		err := render.WriteImageToFS(renderingCanvas, viper.GetString("output.path"), renderingFrameCounter)
+		err := render.WriteImageToFS(renderingCanvas, fullconfig.Output.Path, renderingFrameCounter)
 		if err != nil {
 			log.Printf("failed to encode: %v", err)
 		}
@@ -115,15 +111,16 @@ func (g *Game) Draw(screen *ebiten.Image) {
 }
 
 func init() {
-	viper.SetConfigFile("config.toml")
-	viper.SetConfigType("toml")
-	viper.AddConfigPath(".")
-	err := viper.ReadInConfig()
+	configbytes, err := os.ReadFile("config.toml")
 	if err != nil {
-		log.Fatalln("Error reading configuration file:", err)
+		log.Fatalf("Failed reading configuration file: %s", err)
+	}
+	err = toml.Unmarshal(configbytes, &fullconfig)
+	if err != nil {
+		log.Panic(err)
 	}
 
-	font_bytes, err := os.ReadFile(viper.GetString("text.font_path"))
+	font_bytes, err := os.ReadFile(fullconfig.Text.Font_path)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -135,7 +132,7 @@ func init() {
 
 	var font_hinting font.Hinting = font.HintingNone
 
-	switch viper.GetString("font.hinting") {
+	switch fullconfig.Text.Hinting {
 	case "vertical":
 		font_hinting = font.HintingVertical
 	case "full":
@@ -144,22 +141,21 @@ func init() {
 		font_hinting = font.HintingNone
 	}
 
-	titleFont, err = opentype.NewFace(font_type_parsed, &opentype.FaceOptions{
-		Size:    viper.GetFloat64("text.size"),
-		DPI:     viper.GetFloat64("text.dpi"),
+	titleFont, _ = opentype.NewFace(font_type_parsed, &opentype.FaceOptions{
+		Size:    float64(fullconfig.Text.Size),
+		DPI:     float64(fullconfig.Text.Dpi),
 		Hinting: font_hinting,
 	})
 
-	renderingOptions.Image_opt.GeoM.Scale(viper.GetFloat64("text.scaling_factor"), viper.GetFloat64("text.scaling_factor"))
-	renderingOptions.Image_opt.GeoM.Translate(0, viper.GetFloat64("text.size"))
-
-	if err != nil {
-		log.Fatal(err)
+	renderingOptions = &render.Options{
+		Image_opt: &ebiten.DrawImageOptions{
+			Filter: ebiten.FilterNearest,
+		},
+		Anti_aliasing: fullconfig.Output.Anti_aliasing,
 	}
 
-	if viper.GetBool("resolution.enabled") {
-		ebiten.SetWindowSize(viper.GetInt("resolution.x"), viper.GetInt("resolution.y"))
-	}
+	renderingOptions.Image_opt.GeoM.Scale(float64(fullconfig.Text.Scaling_factor), float64(fullconfig.Text.Scaling_factor))
+	renderingOptions.Image_opt.GeoM.Translate(0, float64(fullconfig.Text.Size))
 }
 
 func main() {
@@ -168,9 +164,11 @@ func main() {
 		frame_counter: 0,
 	}
 
+	if fullconfig.Res.Enabled {
+		ebiten.SetWindowSize(fullconfig.Res.X, fullconfig.Res.Y)
+	}
 	ebiten.SetWindowTitle("Type your thing here")
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
-	ebiten.SetWindowSize(defaultScreenWidth, defaultScreenHeight)
 	if err := ebiten.RunGame(g); err != nil {
 		log.Fatal(err)
 	}
@@ -192,5 +190,9 @@ func repeatingKeyPressed(key ebiten.Key) bool {
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
+	if fullconfig.Res.Enabled {
+		return fullconfig.Res.X, fullconfig.Res.Y
+	}
+
 	return defaultScreenWidth, defaultScreenHeight
 }

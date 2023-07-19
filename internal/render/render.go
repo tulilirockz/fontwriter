@@ -21,7 +21,6 @@ var nullPixel color.RGBA = color.RGBA{
 type Options struct {
 	Image_opt     *ebiten.DrawImageOptions
 	Anti_aliasing bool
-	Shakeit       bool
 }
 
 func RemoveAntiAliasing(canvas *ebiten.Image) {
