@@ -72,27 +72,12 @@ func (g *Game) Update() error {
 		g.user_text += "\n"
 	}
 
-	g.frame_counter++
-	return nil
-}
-
-func (g *Game) Draw(screen *ebiten.Image) {
-	t := g.user_text
-	if g.frame_counter%60 < 30 {
-		t += "_"
-	}
-
-	ui.BoundingBox(screen, t, bitmapfont.Face, 3, 10, 10, 600, 60)
-
 	if flagRender {
 		if renderingFrameCounter == len(g.user_text) {
 			flagRender = false
 			renderingFrameCounter = 0
-			return
+			return nil
 		}
-
-		boundingbox := text.BoundString(bitmapfont.Face, "Rendering!")
-		ui.BoundingBox(screen, "Rendering!", bitmapfont.Face, 3, 100, 50, float32(100+boundingbox.Dx()), float32(50+boundingbox.Dy()))
 
 		rectanglebox := text.BoundString(titleFont, "h")
 		text.Draw(renderingCanvas, g.user_text[0:renderingFrameCounter+1], titleFont, 0, rectanglebox.Dy(), color.White)
@@ -107,6 +92,22 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		}
 
 		renderingFrameCounter++
+	}
+	g.frame_counter++
+	return nil
+}
+
+func (g *Game) Draw(screen *ebiten.Image) {
+	t := g.user_text
+	if g.frame_counter%60 < 30 {
+		t += "_"
+	}
+
+	ui.BoundingBox(screen, t, bitmapfont.Face, 3, 10, 10, defaultScreenWidth-30, defaultScreenHeight-30)
+
+	if flagRender {	
+		boundingbox := text.BoundString(bitmapfont.Face, "Rendering!")
+		ui.BoundingBox(screen, "Rendering!", bitmapfont.Face, 3, 100, 50, float32(100+boundingbox.Dx()), float32(50+boundingbox.Dy()))
 	}
 }
 
