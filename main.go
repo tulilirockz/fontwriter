@@ -99,7 +99,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		ui.BoundingBox(screen, "Rendering!", bitmapfont.Face, 3, 100, 50, float32(100+boundingbox.Dx()), float32(50+boundingbox.Dy()))
 
 		rectanglebox := text.BoundString(titleFont, "h")
-		text.Draw(renderingCanvas, g.user_text[0:renderingFrameCounter+1], titleFont, 0, rectanglebox.Dy()-15, color.White)
+		text.Draw(renderingCanvas, g.user_text[0:renderingFrameCounter+1], titleFont, 0, rectanglebox.Dy(), color.White)
 
 		if !renderingOptions.Anti_aliasing {
 			render.RemoveAntiAliasing(renderingCanvas)
