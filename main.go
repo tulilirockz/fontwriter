@@ -7,12 +7,13 @@ import (
 
 	"os"
 
+	"github.com/hajimehoshi/bitmapfont/v2"
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/text"
 	"github.com/spf13/viper"
-	render "github.com/tulilirockz/typewriter/internal/render"
+	render "github.com/tulilirockz/fontwriter/internal/render"
+	"github.com/tulilirockz/fontwriter/internal/ui"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/opentype"
 )
@@ -59,9 +60,9 @@ func (g *Game) Update() error {
 			log.Fatalf("Failure to create specified folder on output path: %s\n", err)
 		}
 
+		rectanglebox := text.BoundString(titleFont, g.user_text)
 		flagRender = true
 		renderingFrameCounter = 0
-		rectanglebox := text.BoundString(titleFont, g.user_text)
 		renderingCanvas = ebiten.NewImage(
 			rectanglebox.Dx(),
 			rectanglebox.Dy())
@@ -84,7 +85,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	if g.frame_counter%60 < 30 {
 		t += "_"
 	}
-	ebitenutil.DebugPrintAt(screen, t, 0, 0)
+
+	ui.BoundingBox(screen, t, bitmapfont.Face, 3, 10, 10, 600, 60)
 
 	if flagRender {
 		if renderingFrameCounter == len(g.user_text) {
@@ -93,8 +95,11 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			return
 		}
 
-		rectanglebox := text.BoundString(titleFont, g.user_text)
-		text.Draw(renderingCanvas, g.user_text[0:renderingFrameCounter+1], titleFont, 0, rectanglebox.Dy(), color.White)
+		boundingbox := text.BoundString(bitmapfont.Face, "Rendering!")
+		ui.BoundingBox(screen, "Rendering!", bitmapfont.Face, 3, 100, 50, float32(100+boundingbox.Dx()), float32(50+boundingbox.Dy()))
+
+		rectanglebox := text.BoundString(titleFont, "h")
+		text.Draw(renderingCanvas, g.user_text[0:renderingFrameCounter+1], titleFont, 0, rectanglebox.Dy()-15, color.White)
 
 		if !renderingOptions.Anti_aliasing {
 			render.RemoveAntiAliasing(renderingCanvas)
@@ -144,6 +149,7 @@ func init() {
 		DPI:     viper.GetFloat64("text.dpi"),
 		Hinting: font_hinting,
 	})
+
 	renderingOptions.Image_opt.GeoM.Scale(viper.GetFloat64("text.scaling_factor"), viper.GetFloat64("text.scaling_factor"))
 	renderingOptions.Image_opt.GeoM.Translate(0, viper.GetFloat64("text.size"))
 
@@ -186,5 +192,5 @@ func repeatingKeyPressed(key ebiten.Key) bool {
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
-	return viper.GetInt("resolution.x"), viper.GetInt("resolution.y")
+	return defaultScreenWidth, defaultScreenHeight
 }

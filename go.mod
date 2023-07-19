@@ -1,4 +1,4 @@
-module github.com/tulilirockz/typewriter
+module github.com/tulilirockz/fontwriter
 
 go 1.20
 
