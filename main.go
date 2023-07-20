@@ -38,6 +38,7 @@ var (
 	renderingFrameCounter int  = 0
 	flagRender            Flag = false
 	renderingOptions      *render.Options
+	outputPath            string
 )
 
 func (g *Game) Update() error {
@@ -51,7 +52,12 @@ func (g *Game) Update() error {
 	}
 
 	if repeatingKeyPressed(ebiten.KeyF1) {
-		err := os.Mkdir(path.Clean(fullconfig.Output.Path), 0755)
+		if len(g.user_text) > 20 {
+			outputPath = g.user_text[:len(g.user_text)-20]
+		} else {
+			outputPath = g.user_text
+		}
+		err := os.Mkdir(path.Clean(outputPath), 0755)
 		if !os.IsExist(err) && err != nil {
 			log.Fatalf("Failure to create specified folder on output path: %s\n", err)
 		}
@@ -86,7 +92,7 @@ func (g *Game) Update() error {
 			render.RemoveAntiAliasing(renderingCanvas)
 		}
 
-		err := render.WriteImageToFS(renderingCanvas, fullconfig.Output.Path, renderingFrameCounter)
+		err := render.WriteImageToFS(renderingCanvas, outputPath, renderingFrameCounter)
 		if err != nil {
 			log.Printf("failed to encode: %v", err)
 		}
@@ -105,7 +111,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 	ui.BoundingBox(screen, t, bitmapfont.Face, 3, 10, 10, defaultScreenWidth-30, defaultScreenHeight-30)
 
-	if flagRender {	
+	if flagRender {
 		boundingbox := text.BoundString(bitmapfont.Face, "Rendering!")
 		ui.BoundingBox(screen, "Rendering!", bitmapfont.Face, 3, 100, 50, float32(100+boundingbox.Dx()), float32(50+boundingbox.Dy()))
 	}
