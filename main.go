@@ -4,6 +4,7 @@ import (
 	"image/color"
 	"log"
 	"path"
+	"strings"
 
 	"os"
 
@@ -57,6 +58,7 @@ func (g *Game) Update() error {
 		} else {
 			outputPath = g.user_text
 		}
+		outputPath = strings.ReplaceAll(outputPath, "\n", "_")
 		err := os.Mkdir(path.Clean(outputPath), 0755)
 		if !os.IsExist(err) && err != nil {
 			log.Fatalf("Failure to create specified folder on output path: %s\n", err)
