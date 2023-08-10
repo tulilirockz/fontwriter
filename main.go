@@ -5,7 +5,6 @@ import (
 	"log"
 	"path"
 	"runtime"
-	"strings"
 	"sync"
 
 	"os"
@@ -16,6 +15,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/text"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/tulilirockz/fontwriter/internal/configuration"
+	"github.com/tulilirockz/fontwriter/internal/fs"
 	render "github.com/tulilirockz/fontwriter/internal/render"
 	"github.com/tulilirockz/fontwriter/internal/ui"
 	"golang.org/x/image/font"
@@ -27,22 +27,17 @@ const (
 	defaultScreenHeight = 480
 )
 
+var (
+	FullConfig *configuration.ProgramConf
+	TitleFont  font.Face
+)
+
 type Game struct {
 	runes         []rune
 	user_text     string
 	frame_counter int
 }
 type Flag bool
-
-var (
-	FullConfig            *configuration.ProgramConf
-	TitleFont             font.Face
-	RenderingCanvas       *ebiten.Image
-	RenderingFrameCounter int  = 0
-	FlagRender            Flag = false
-	RenderingOptions      *render.Options
-	OutputPath            string
-)
 
 func (g *Game) Update() error {
 	g.runes = ebiten.AppendInputChars(g.runes[:0])
@@ -55,57 +50,43 @@ func (g *Game) Update() error {
 	}
 
 	if repeatingKeyPressed(ebiten.KeyF1) {
-		if len(g.user_text) > 20 {
-			OutputPath = g.user_text[:len(g.user_text)-20]
-		} else {
-			OutputPath = g.user_text
+		out_path, err := fs.ToOutputString(FullConfig.Output.Path, &g.user_text)
+		if err != nil {
+			log.Printf("Failed translating output string")
+			return err
 		}
-		OutputPath = strings.ReplaceAll(OutputPath, "\n", "_")
-		err := os.Mkdir(path.Clean(OutputPath), 0755)
+
+		err = os.MkdirAll(path.Clean(out_path), 0755)
 		if !os.IsExist(err) && err != nil {
-			log.Fatalf("Failure to create specified folder on output path: %s\n", err)
+			return err
 		}
 
-		rectanglebox := text.BoundString(TitleFont, g.user_text)
-		FlagRender = true
-		RenderingFrameCounter = 0
-		RenderingCanvas = ebiten.NewImage(
-			rectanglebox.Dx(),
-			rectanglebox.Dy())
-	}
-
-	// if repeatingKeyPressed(ebiten.KeyF2) {
-	// screenShakeFlag = !screenShakeFlag
-	//}
-
-	if repeatingKeyPressed(ebiten.KeyEnter) || repeatingKeyPressed(ebiten.KeyNumpadEnter) {
-		g.user_text += "\n"
-	}
-
-	if FlagRender {
-		var wg sync.WaitGroup
+		var waitgrp sync.WaitGroup
 
 		for i := 0; i < len(g.user_text); i++ {
-			wg.Add(1)
+			waitgrp.Add(1)
 			go func(i int) {
 				bounding_box := text.BoundString(TitleFont, g.user_text[0:i+1])
 				canvas := ebiten.NewImage(
 					bounding_box.Dx(),
 					bounding_box.Dy())
-				text.Draw(canvas, g.user_text[0:i+1], TitleFont, 0, bounding_box.Dy(), color.White)
-				if !RenderingOptions.Anti_aliasing {
+				text.Draw(canvas, (g.user_text)[0:i+1], TitleFont, 0, bounding_box.Dy(), color.White)
+				if !FullConfig.Output.Anti_aliasing {
 					render.RemoveAntiAliasing(canvas)
 				}
-				err := render.WriteImageToFS(canvas, OutputPath, i)
+				err := fs.WriteImageToFS(g.user_text, canvas, out_path, i)
 				if err != nil {
-					log.Printf("failed to encode: %v", err)
+					log.Printf("Failed writing image to disk, %v", err)
 				}
-				wg.Done()
+				waitgrp.Done()
 			}(i)
 		}
-		FlagRender = false
-		RenderingFrameCounter = 0
 	}
+
+	if repeatingKeyPressed(ebiten.KeyEnter) || repeatingKeyPressed(ebiten.KeyNumpadEnter) {
+		g.user_text += "\n"
+	}
+
 	g.frame_counter++
 	return nil
 }
@@ -160,16 +141,6 @@ func init() {
 		DPI:     float64(FullConfig.Text.Dpi),
 		Hinting: font_hinting,
 	})
-
-	RenderingOptions = &render.Options{
-		Image_opt: &ebiten.DrawImageOptions{
-			Filter: ebiten.FilterNearest,
-		},
-		Anti_aliasing: FullConfig.Output.Anti_aliasing,
-	}
-
-	RenderingOptions.Image_opt.GeoM.Scale(float64(FullConfig.Text.Scaling_factor), float64(FullConfig.Text.Scaling_factor))
-	RenderingOptions.Image_opt.GeoM.Translate(0, float64(FullConfig.Text.Size))
 }
 
 func main() {

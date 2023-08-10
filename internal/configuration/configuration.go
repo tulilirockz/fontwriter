@@ -9,9 +9,10 @@ type Text struct {
 }
 
 type Output struct {
-	Letters_per_frame int  `json:"letters_per_frame"`
-	Anti_aliasing     bool `json:"anti_aliasing"`
-	Gif               bool `json:"gif"`
+	Letters_per_frame int    `json:"letters_per_frame"`
+	Anti_aliasing     bool   `json:"anti_aliasing"`
+	Gif               bool   `json:"gif"`
+	Path              string `json:"path"`
 }
 
 type ProgramConf struct {
