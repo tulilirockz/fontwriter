@@ -4,7 +4,9 @@ import (
 	"image/color"
 	"log"
 	"path"
+	"runtime"
 	"strings"
+	"sync"
 
 	"os"
 
@@ -33,13 +35,13 @@ type Game struct {
 type Flag bool
 
 var (
-	fullconfig            *configuration.ProgramConf
-	titleFont             font.Face
-	renderingCanvas       *ebiten.Image
-	renderingFrameCounter int  = 0
-	flagRender            Flag = false
-	renderingOptions      *render.Options
-	outputPath            string
+	FullConfig            *configuration.ProgramConf
+	TitleFont             font.Face
+	RenderingCanvas       *ebiten.Image
+	RenderingFrameCounter int  = 0
+	FlagRender            Flag = false
+	RenderingOptions      *render.Options
+	OutputPath            string
 )
 
 func (g *Game) Update() error {
@@ -54,20 +56,20 @@ func (g *Game) Update() error {
 
 	if repeatingKeyPressed(ebiten.KeyF1) {
 		if len(g.user_text) > 20 {
-			outputPath = g.user_text[:len(g.user_text)-20]
+			OutputPath = g.user_text[:len(g.user_text)-20]
 		} else {
-			outputPath = g.user_text
+			OutputPath = g.user_text
 		}
-		outputPath = strings.ReplaceAll(outputPath, "\n", "_")
-		err := os.Mkdir(path.Clean(outputPath), 0755)
+		OutputPath = strings.ReplaceAll(OutputPath, "\n", "_")
+		err := os.Mkdir(path.Clean(OutputPath), 0755)
 		if !os.IsExist(err) && err != nil {
 			log.Fatalf("Failure to create specified folder on output path: %s\n", err)
 		}
 
-		rectanglebox := text.BoundString(titleFont, g.user_text)
-		flagRender = true
-		renderingFrameCounter = 0
-		renderingCanvas = ebiten.NewImage(
+		rectanglebox := text.BoundString(TitleFont, g.user_text)
+		FlagRender = true
+		RenderingFrameCounter = 0
+		RenderingCanvas = ebiten.NewImage(
 			rectanglebox.Dx(),
 			rectanglebox.Dy())
 	}
@@ -80,26 +82,29 @@ func (g *Game) Update() error {
 		g.user_text += "\n"
 	}
 
-	if flagRender {
-		if renderingFrameCounter == len(g.user_text) {
-			flagRender = false
-			renderingFrameCounter = 0
-			return nil
+	if FlagRender {
+		var wg sync.WaitGroup
+
+		for i := 0; i < len(g.user_text); i++ {
+			wg.Add(1)
+			go func(i int) {
+				bounding_box := text.BoundString(TitleFont, g.user_text[0:i+1])
+				canvas := ebiten.NewImage(
+					bounding_box.Dx(),
+					bounding_box.Dy())
+				text.Draw(canvas, g.user_text[0:i+1], TitleFont, 0, bounding_box.Dy(), color.White)
+				if !RenderingOptions.Anti_aliasing {
+					render.RemoveAntiAliasing(canvas)
+				}
+				err := render.WriteImageToFS(canvas, OutputPath, i)
+				if err != nil {
+					log.Printf("failed to encode: %v", err)
+				}
+				wg.Done()
+			}(i)
 		}
-
-		rectanglebox := text.BoundString(titleFont, "h")
-		text.Draw(renderingCanvas, g.user_text[0:renderingFrameCounter+1], titleFont, 0, rectanglebox.Dy(), color.White)
-
-		if !renderingOptions.Anti_aliasing {
-			render.RemoveAntiAliasing(renderingCanvas)
-		}
-
-		err := render.WriteImageToFS(renderingCanvas, outputPath, renderingFrameCounter)
-		if err != nil {
-			log.Printf("failed to encode: %v", err)
-		}
-
-		renderingFrameCounter++
+		FlagRender = false
+		RenderingFrameCounter = 0
 	}
 	g.frame_counter++
 	return nil
@@ -111,12 +116,12 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		t += "_"
 	}
 
-	ui.BoundingBox(screen, t, bitmapfont.Face, 3, 10, 10, defaultScreenWidth-30, defaultScreenHeight-30)
-
-	if flagRender {
-		boundingbox := text.BoundString(bitmapfont.Face, "Rendering!")
-		ui.BoundingBox(screen, "Rendering!", bitmapfont.Face, 3, 100, 50, float32(100+boundingbox.Dx()), float32(50+boundingbox.Dy()))
-	}
+	ui.TextBoundingBox(screen, t, bitmapfont.Face, color.RGBA{
+		R: 255,
+		G: 204,
+		B: 0,
+		A: 0,
+	}, 3, 10, 10, defaultScreenWidth-30, defaultScreenHeight-30)
 }
 
 func init() {
@@ -124,12 +129,12 @@ func init() {
 	if err != nil {
 		log.Fatalf("Failed reading configuration file: %s", err)
 	}
-	err = toml.Unmarshal(configbytes, &fullconfig)
+	err = toml.Unmarshal(configbytes, &FullConfig)
 	if err != nil {
 		log.Panic(err)
 	}
 
-	font_bytes, err := os.ReadFile(fullconfig.Text.Font_path)
+	font_bytes, err := os.ReadFile(FullConfig.Text.Font_path)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -141,7 +146,7 @@ func init() {
 
 	var font_hinting font.Hinting = font.HintingNone
 
-	switch fullconfig.Text.Hinting {
+	switch FullConfig.Text.Hinting {
 	case "vertical":
 		font_hinting = font.HintingVertical
 	case "full":
@@ -150,21 +155,21 @@ func init() {
 		font_hinting = font.HintingNone
 	}
 
-	titleFont, _ = opentype.NewFace(font_type_parsed, &opentype.FaceOptions{
-		Size:    float64(fullconfig.Text.Size),
-		DPI:     float64(fullconfig.Text.Dpi),
+	TitleFont, _ = opentype.NewFace(font_type_parsed, &opentype.FaceOptions{
+		Size:    float64(FullConfig.Text.Size),
+		DPI:     float64(FullConfig.Text.Dpi),
 		Hinting: font_hinting,
 	})
 
-	renderingOptions = &render.Options{
+	RenderingOptions = &render.Options{
 		Image_opt: &ebiten.DrawImageOptions{
 			Filter: ebiten.FilterNearest,
 		},
-		Anti_aliasing: fullconfig.Output.Anti_aliasing,
+		Anti_aliasing: FullConfig.Output.Anti_aliasing,
 	}
 
-	renderingOptions.Image_opt.GeoM.Scale(float64(fullconfig.Text.Scaling_factor), float64(fullconfig.Text.Scaling_factor))
-	renderingOptions.Image_opt.GeoM.Translate(0, float64(fullconfig.Text.Size))
+	RenderingOptions.Image_opt.GeoM.Scale(float64(FullConfig.Text.Scaling_factor), float64(FullConfig.Text.Scaling_factor))
+	RenderingOptions.Image_opt.GeoM.Translate(0, float64(FullConfig.Text.Size))
 }
 
 func main() {
@@ -172,7 +177,7 @@ func main() {
 		user_text:     "",
 		frame_counter: 0,
 	}
-
+	runtime.GOMAXPROCS(runtime.NumCPU())
 	ebiten.SetWindowTitle("Type your thing here")
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	if err := ebiten.RunGame(g); err != nil {
