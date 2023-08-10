@@ -1,18 +1,26 @@
 TARGET := fontwriter
 BUILD_DIR := build
 DIST_FOLDER := dist
+DATE_FORMAT := "+%H-%d-%m-%Y"
+GIT_CURR_HASH := $(shell git rev-parse --short HEAD)
 
-ifdef OS
+ifdef OS	
 	GO_TARGET := windows
 	TARGET_EXTENSION := exe
+	PKG_FMT := zip
+	CURRENT_OS := windows
+	PACKAGING_COMMAND := zip -r
 else
-   ifeq ($(shell uname), Linux)
-      GO_TARGET := linux
-	  TARGET_EXTENSION := elf
-   endif
+   	ifeq ($(shell uname -s), Linux)
+		GO_TARGET := linux
+		TARGET_EXTENSION := elf
+		PKG_FMT := tar.gz
+		CURRENT_OS := linux
+		PACKAGING_COMMAND := tar czvf
+	endif
 endif
 
-all: build
+all: package
 
 build:
 	mkdir -p $(BUILD_DIR)
@@ -21,18 +29,7 @@ build:
 
 package: clean build
 	mkdir -p $(DIST_FOLDER)
-	tar czvf $(DIST_FOLDER)/$(BUILD_DIR).tar.gz $(BUILD_DIR)
-
-build_win:
-	OS="windows" make build
-
-package_win: clean build_win
-	mkdir -p $(DIST_FOLDER)
-	zip -r $(DIST_FOLDER)/$(BUILD_DIR).zip $(BUILD_DIR)
-
-.PHONY: tidy
-tidy:
-	go mod tidy
+	$(PACKAGING_COMMAND) $(DIST_FOLDER)/$(BUILD_DIR)-$(CURRENT_OS)-$(GIT_CURR_HASH).$(PKG_FMT) $(BUILD_DIR)
 
 .PHONY: clean
 clean:
