@@ -75,7 +75,7 @@ func (g *Game) Update() error {
 					bounding_box.Dx(),
 					bounding_box.Dy())
 				text.Draw(canvas, (filtered_text)[0:i+1], TitleFont, 0, bounding_box.Dy(), color.White)
-				if !FullConfig.Output.Anti_aliasing {
+				if !FullConfig.Text.Anti_aliasing {
 					render.RemoveAntiAliasing(canvas)
 				}
 				err := fs.WriteImageToFS(g.user_text, canvas, out_path, i)

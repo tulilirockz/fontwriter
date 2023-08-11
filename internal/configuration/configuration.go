@@ -6,11 +6,11 @@ type Text struct {
 	Hinting        string  `json:"hinting"`
 	Scaling_factor float32 `json:"scaling_factor"`
 	Font_path      string  `json:"font_path"`
+	Anti_aliasing     bool   `json:"anti_aliasing"`
 }
 
 type Output struct {
 	Letters_per_frame int    `json:"letters_per_frame"`
-	Anti_aliasing     bool   `json:"anti_aliasing"`
 	Gif               bool   `json:"gif"`
 	Path              string `json:"path"`
 }

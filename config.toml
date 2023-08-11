@@ -4,14 +4,9 @@ size=150
 hinting="none"
 scaling_factor=2
 font_path="sans.ttf"
-
-[resolution]
-enabled=true
-x=210
-y=210
+anti_aliasing=true
 
 [output]
 letters_per_frame=1
-anti_aliasing=false
 gif=false
 path="out"
