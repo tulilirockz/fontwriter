@@ -5,6 +5,7 @@ import (
 	"log"
 	"path"
 	"runtime"
+	"strings"
 	"sync"
 
 	"os"
@@ -50,7 +51,7 @@ func (g *Game) Update() error {
 	}
 
 	if repeatingKeyPressed(ebiten.KeyF1) {
-		out_path, err := fs.ToOutputString(FullConfig.Output.Path, &g.user_text)
+		out_path, err := fs.ToPathString(FullConfig.Output.Path, &g.user_text)
 		if err != nil {
 			log.Printf("Failed translating output string")
 			return err
@@ -61,16 +62,19 @@ func (g *Game) Update() error {
 			return err
 		}
 
+		filtered_text := strings.ReplaceAll(g.user_text, "\n", "_")
+		filtered_text = strings.ReplaceAll(filtered_text, " ", "_")
+
 		var waitgrp sync.WaitGroup
 
 		for i := 0; i < len(g.user_text); i++ {
 			waitgrp.Add(1)
 			go func(i int) {
-				bounding_box := text.BoundString(TitleFont, g.user_text[0:i+1])
+				bounding_box := text.BoundString(TitleFont, filtered_text[0:i+1])
 				canvas := ebiten.NewImage(
 					bounding_box.Dx(),
 					bounding_box.Dy())
-				text.Draw(canvas, (g.user_text)[0:i+1], TitleFont, 0, bounding_box.Dy(), color.White)
+				text.Draw(canvas, (filtered_text)[0:i+1], TitleFont, 0, bounding_box.Dy(), color.White)
 				if !FullConfig.Output.Anti_aliasing {
 					render.RemoveAntiAliasing(canvas)
 				}
@@ -97,12 +101,20 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		t += "_"
 	}
 
-	ui.TextBoundingBox(screen, t, bitmapfont.Face, color.RGBA{
-		R: 255,
-		G: 204,
-		B: 0,
-		A: 0,
-	}, 3, 10, 10, defaultScreenWidth-30, defaultScreenHeight-30)
+	const (
+		PADDING = 3
+		OFFSET  = 10
+	)
+
+	var default_color color.Color = color.RGBA{
+		R: 72,
+		G: 12,
+		B: 122,
+		A: 1,
+	}
+
+	ui.TextBoundingBox(screen, t, bitmapfont.Face, default_color, 3, 10, 10, defaultScreenWidth-30, defaultScreenHeight-30)
+	text.Draw(screen, "Instructions:\nF1: Render separate png files\nF2: Render a .gif file", bitmapfont.Face, int(10+PADDING+OFFSET), int(400+PADDING+OFFSET), color.Black)
 }
 
 func init() {

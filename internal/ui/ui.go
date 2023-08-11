@@ -10,8 +10,9 @@ import (
 )
 
 func TextBoundingBox(screen *ebiten.Image, label string, font font.Face, usercolor color.Color, padding, x0, y0, x1, y1 float32) {
-	vector.DrawFilledRect(screen, x0, y0, x1, y1, usercolor, false)                                       
+	const OFFSET = 10
+	vector.DrawFilledRect(screen, x0, y0, x1, y1, usercolor, false)
 	vector.DrawFilledRect(screen, x0+padding, y0+padding, x1-padding*2, y1-padding*2, color.White, false)
 
-	text.Draw(screen, label, font, int(x0+padding+10), int(y0+padding+10), color.Black)
+	text.Draw(screen, label, font, int(x0+padding+OFFSET), int(y0+padding*2+OFFSET), color.Black)
 }

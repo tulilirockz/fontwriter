@@ -24,7 +24,7 @@ func WriteImageToFS(user_text string, frame *ebiten.Image, base_path string, fra
 	return nil
 }
 
-func ToOutputString(base_path string, user_text *string) (string, error) {
+func ToPathString(base_path string, user_text *string) (string, error) {
 	if base_path == "" {
 		return "", errors.New("failed to parse string, string is empty")
 	}
